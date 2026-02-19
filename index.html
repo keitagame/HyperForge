@@ -1,0 +1,2028 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HyperForge — Virtualization Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-base: #0a0c10;
+    --bg-surface: #0f1117;
+    --bg-elevated: #151820;
+    --bg-card: #1a1e29;
+    --bg-hover: #1f2435;
+    --border: #252a38;
+    --border-bright: #2e3548;
+    --text-primary: #e8ecf4;
+    --text-secondary: #8a93a8;
+    --text-muted: #545e76;
+    --accent-cyan: #00d4ff;
+    --accent-cyan-dim: rgba(0, 212, 255, 0.12);
+    --accent-green: #00e57a;
+    --accent-green-dim: rgba(0, 229, 122, 0.1);
+    --accent-amber: #ffb020;
+    --accent-amber-dim: rgba(255, 176, 32, 0.12);
+    --accent-red: #ff4d6a;
+    --accent-red-dim: rgba(255, 77, 106, 0.12);
+    --accent-purple: #9b59f5;
+    --accent-purple-dim: rgba(155, 89, 245, 0.1);
+    --node-running: #00e57a;
+    --node-stopped: #ff4d6a;
+    --node-paused: #ffb020;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* TOPBAR */
+  .topbar {
+    height: 44px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 24px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: 0.08em;
+    color: var(--accent-cyan);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-icon {
+    width: 22px; height: 22px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+  }
+  .logo-icon span {
+    background: var(--accent-cyan);
+    border-radius: 1px;
+    display: block;
+  }
+  .logo-icon span:nth-child(2) { opacity: 0.5; }
+  .logo-icon span:nth-child(3) { opacity: 0.7; }
+  .logo-icon span:nth-child(4) { opacity: 0.3; }
+
+  .topbar-nav {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 8px;
+  }
+  .topbar-nav a {
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  .topbar-nav a:hover, .topbar-nav a.active {
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+  }
+
+  .topbar-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .cluster-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+  .cluster-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    box-shadow: 0 0 6px var(--accent-green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .topbar-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+  .topbar-user:hover { background: var(--bg-elevated); color: var(--text-primary); }
+  .user-avatar {
+    width: 22px; height: 22px;
+    border-radius: 3px;
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #000;
+  }
+
+  /* MAIN LAYOUT */
+  .app-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 240px;
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .sidebar::-webkit-scrollbar { width: 3px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+  .sidebar-section {
+    padding: 12px 0 4px;
+  }
+  .sidebar-section-header {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 0 14px 8px;
+  }
+
+  .tree-node {
+    padding: 0 8px;
+  }
+  .tree-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    transition: all 0.12s;
+    position: relative;
+  }
+  .tree-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+  .tree-item.active {
+    background: var(--accent-cyan-dim);
+    color: var(--accent-cyan);
+  }
+  .tree-item .tree-icon {
+    width: 14px;
+    text-align: center;
+    flex-shrink: 0;
+    font-size: 13px;
+  }
+  .tree-item .tree-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tree-badge {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 10px;
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .tree-badge.running {
+    background: var(--accent-green-dim);
+    color: var(--accent-green);
+  }
+
+  .tree-children {
+    margin-left: 8px;
+    border-left: 1px solid var(--border);
+    margin-bottom: 2px;
+  }
+  .tree-children .tree-item {
+    padding-left: 14px;
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .status-dot.running { background: var(--node-running); box-shadow: 0 0 4px var(--node-running); }
+  .status-dot.stopped { background: var(--node-stopped); }
+  .status-dot.paused { background: var(--node-paused); }
+  .status-dot.online { background: var(--accent-cyan); box-shadow: 0 0 4px var(--accent-cyan); }
+
+  /* CONTENT AREA */
+  .content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-base);
+  }
+
+  /* BREADCRUMB */
+  .breadcrumb {
+    height: 38px;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 6px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    background: var(--bg-surface);
+  }
+  .breadcrumb span { color: var(--text-primary); font-weight: 500; }
+  .breadcrumb .sep { color: var(--border-bright); }
+
+  /* TOOLBAR */
+  .toolbar {
+    height: 42px;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 6px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--bg-surface);
+  }
+
+  .btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.12s;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .btn-primary {
+    background: var(--accent-cyan);
+    color: #000;
+    border-color: var(--accent-cyan);
+  }
+  .btn-primary:hover { background: #33dcff; }
+  .btn-default {
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    border-color: var(--border-bright);
+  }
+  .btn-default:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-bright); }
+  .btn-danger {
+    background: transparent;
+    color: var(--accent-red);
+    border-color: var(--accent-red-dim);
+  }
+  .btn-danger:hover { background: var(--accent-red-dim); border-color: var(--accent-red); }
+  .btn-success {
+    background: transparent;
+    color: var(--accent-green);
+    border-color: var(--accent-green-dim);
+  }
+  .btn-success:hover { background: var(--accent-green-dim); border-color: var(--accent-green); }
+
+  .toolbar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+
+  /* MAIN PANEL CONTENT */
+  .panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .panel-content::-webkit-scrollbar { width: 4px; }
+  .panel-content::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+  /* STATS ROW */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .stat-card:hover { border-color: var(--border-bright); }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .stat-card.cyan::before { background: var(--accent-cyan); }
+  .stat-card.green::before { background: var(--accent-green); }
+  .stat-card.amber::before { background: var(--accent-amber); }
+  .stat-card.purple::before { background: var(--accent-purple); }
+
+  .stat-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+  .stat-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .stat-sub {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+  .stat-sub b { color: var(--text-secondary); }
+
+  /* USAGE BAR */
+  .usage-bar-wrap {
+    margin-top: 10px;
+  }
+  .usage-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .usage-bar {
+    height: 3px;
+    background: var(--bg-elevated);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .usage-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s ease;
+  }
+  .usage-bar-fill.cyan { background: var(--accent-cyan); }
+  .usage-bar-fill.green { background: var(--accent-green); }
+  .usage-bar-fill.amber { background: var(--accent-amber); }
+  .usage-bar-fill.purple { background: var(--accent-purple); }
+
+  /* CHARTS ROW */
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .chart-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+  }
+  .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .chart-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+  .chart-legend {
+    display: flex;
+    gap: 12px;
+    font-size: 9px;
+    color: var(--text-muted);
+  }
+  .chart-legend span { display: flex; align-items: center; gap: 4px; }
+  .legend-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+
+  canvas { display: block; width: 100% !important; }
+
+  /* VM TABLE */
+  .vm-table-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .vm-table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .vm-table-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+  .vm-table-actions { display: flex; gap: 6px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+  }
+  thead tr {
+    background: var(--bg-elevated);
+  }
+  thead th {
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  thead th:hover { color: var(--text-secondary); }
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+    cursor: pointer;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--bg-hover); }
+  tbody tr.selected { background: var(--accent-cyan-dim); }
+  td {
+    padding: 9px 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  td.name-col { color: var(--text-primary); font-weight: 500; }
+
+  .vm-id {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .status-badge.running {
+    background: var(--accent-green-dim);
+    color: var(--accent-green);
+    border: 1px solid rgba(0,229,122,0.2);
+  }
+  .status-badge.stopped {
+    background: var(--accent-red-dim);
+    color: var(--accent-red);
+    border: 1px solid rgba(255,77,106,0.2);
+  }
+  .status-badge.paused {
+    background: var(--accent-amber-dim);
+    color: var(--accent-amber);
+    border: 1px solid rgba(255,176,32,0.2);
+  }
+
+  .mini-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 80px;
+  }
+  .mini-bar-track {
+    flex: 1;
+    height: 4px;
+    background: var(--bg-elevated);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .mini-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent-cyan);
+    transition: width 0.8s ease;
+  }
+  .mini-bar-fill.warn { background: var(--accent-amber); }
+  .mini-bar-fill.danger { background: var(--accent-red); }
+  .mini-bar-val { font-size: 10px; color: var(--text-muted); width: 30px; text-align: right; }
+
+  /* RIGHT PANEL */
+  .right-panel {
+    width: 280px;
+    background: var(--bg-surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .right-panel::-webkit-scrollbar { width: 3px; }
+  .right-panel::-webkit-scrollbar-thumb { background: var(--border-bright); }
+
+  .rp-section {
+    padding: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .rp-title {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+
+  .node-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .node-card:hover { border-color: var(--border-bright); }
+  .node-card:last-child { margin-bottom: 0; }
+  .node-card-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .node-name {
+    flex: 1;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .node-type {
+    font-size: 9px;
+    color: var(--text-muted);
+    background: var(--bg-elevated);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+  .node-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .node-metric {
+    font-size: 9px;
+    color: var(--text-muted);
+  }
+  .node-metric b {
+    display: block;
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-bottom: 1px;
+  }
+
+  /* LOG */
+  .log-entry {
+    display: flex;
+    gap: 8px;
+    padding: 5px 0;
+    font-size: 10px;
+    border-bottom: 1px solid var(--border);
+    align-items: flex-start;
+  }
+  .log-entry:last-child { border-bottom: none; }
+  .log-time { color: var(--text-muted); flex-shrink: 0; }
+  .log-level {
+    flex-shrink: 0;
+    font-weight: 700;
+    width: 30px;
+  }
+  .log-level.info { color: var(--accent-cyan); }
+  .log-level.warn { color: var(--accent-amber); }
+  .log-level.err { color: var(--accent-red); }
+  .log-msg { color: var(--text-secondary); line-height: 1.4; }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    backdrop-filter: blur(3px);
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-bright);
+    border-radius: 8px;
+    width: 540px;
+    max-height: 80vh;
+    overflow-y: auto;
+    transform: translateY(10px);
+    transition: transform 0.2s;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .modal-close {
+    width: 26px; height: 26px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    transition: all 0.1s;
+  }
+  .modal-close:hover { background: var(--bg-elevated); color: var(--text-primary); }
+
+  .modal-body { padding: 20px; }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .form-row.full { grid-template-columns: 1fr; }
+
+  .form-field label {
+    display: block;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+  }
+  .form-field input, .form-field select {
+    width: 100%;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-bright);
+    color: var(--text-primary);
+    padding: 7px 10px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+    appearance: none;
+  }
+  .form-field input:focus, .form-field select:focus {
+    border-color: var(--accent-cyan);
+  }
+  .form-field input::placeholder { color: var(--text-muted); }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    background: var(--bg-surface);
+  }
+  .tab {
+    padding: 10px 16px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s;
+  }
+  .tab:hover { color: var(--text-secondary); }
+  .tab.active { color: var(--accent-cyan); border-bottom-color: var(--accent-cyan); }
+
+  /* NOTIFICATIONS */
+  .notif-stack {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 2000;
+    pointer-events: none;
+  }
+  .notif {
+    background: var(--bg-card);
+    border: 1px solid var(--border-bright);
+    border-radius: 5px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    min-width: 260px;
+    transform: translateX(100px);
+    opacity: 0;
+    transition: all 0.25s;
+    pointer-events: all;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .notif.show { transform: translateX(0); opacity: 1; }
+  .notif-icon { font-size: 14px; }
+  .notif.success { border-left: 3px solid var(--accent-green); }
+  .notif.info { border-left: 3px solid var(--accent-cyan); }
+  .notif.warn { border-left: 3px solid var(--accent-amber); }
+
+  /* CONSOLE */
+  .console-output {
+    background: #050709;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+    font-size: 11px;
+    color: #7fff7f;
+    height: 120px;
+    overflow-y: auto;
+    line-height: 1.6;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .console-output .prompt { color: var(--accent-cyan); }
+  .console-output .output { color: #b8d4b8; }
+  .console-output .err { color: var(--accent-red); }
+
+  .animate-in {
+    animation: fadeUp 0.3s ease both;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Staggered children */
+  .stats-grid > *:nth-child(1) { animation: fadeUp 0.3s 0.0s ease both; }
+  .stats-grid > *:nth-child(2) { animation: fadeUp 0.3s 0.05s ease both; }
+  .stats-grid > *:nth-child(3) { animation: fadeUp 0.3s 0.1s ease both; }
+  .stats-grid > *:nth-child(4) { animation: fadeUp 0.3s 0.15s ease both; }
+
+  .search-box {
+    position: relative;
+    margin-left: auto;
+  }
+  .search-box input {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 5px 10px 5px 28px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    width: 180px;
+    outline: none;
+    transition: all 0.15s;
+  }
+  .search-box input:focus { border-color: var(--accent-cyan); width: 220px; color: var(--text-primary); }
+  .search-box::before {
+    content: '⌕';
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 14px;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon">
+      <span></span><span></span><span></span><span></span>
+    </div>
+    HyperForge
+  </div>
+  <div class="topbar-nav">
+    <a class="active" onclick="setPage('dashboard')">Dashboard</a>
+    <a onclick="setPage('datacenter')">Datacenter</a>
+    <a onclick="setPage('storage')">Storage</a>
+    <a onclick="setPage('network')">Network</a>
+    <a onclick="setPage('backup')">Backup</a>
+  </div>
+  <div class="topbar-right">
+    <div class="cluster-status">
+      <div class="cluster-dot"></div>
+      cluster: online
+    </div>
+    <div class="topbar-user">
+      <div class="user-avatar">RO</div>
+      root@hf
+    </div>
+  </div>
+</div>
+
+<!-- BODY -->
+<div class="app-body">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-section-header">Datacenter</div>
+      <div class="tree-node">
+        <div class="tree-item" onclick="selectNode('dc')">
+          <span class="tree-icon">⬡</span>
+          <span class="tree-label">hf-cluster</span>
+          <span class="tree-badge running">3</span>
+        </div>
+
+        <div class="tree-children">
+          <div class="tree-item active" onclick="selectNode('node1')">
+            <div class="status-dot online"></div>
+            <span class="tree-icon">◈</span>
+            <span class="tree-label">hf-node-01</span>
+          </div>
+          <div class="tree-children">
+            <div class="tree-item" onclick="selectVM(100)">
+              <div class="status-dot running"></div>
+              <span class="tree-label">web-prod-01</span>
+              <span class="vm-id">100</span>
+            </div>
+            <div class="tree-item" onclick="selectVM(101)">
+              <div class="status-dot running"></div>
+              <span class="tree-label">db-master</span>
+              <span class="vm-id">101</span>
+            </div>
+            <div class="tree-item" onclick="selectVM(102)">
+              <div class="status-dot stopped"></div>
+              <span class="tree-label">dev-sandbox</span>
+              <span class="vm-id">102</span>
+            </div>
+          </div>
+
+          <div class="tree-item" onclick="selectNode('node2')">
+            <div class="status-dot online"></div>
+            <span class="tree-icon">◈</span>
+            <span class="tree-label">hf-node-02</span>
+          </div>
+          <div class="tree-children">
+            <div class="tree-item" onclick="selectVM(103)">
+              <div class="status-dot running"></div>
+              <span class="tree-label">k8s-worker-01</span>
+              <span class="vm-id">103</span>
+            </div>
+            <div class="tree-item" onclick="selectVM(104)">
+              <div class="status-dot running"></div>
+              <span class="tree-label">k8s-worker-02</span>
+              <span class="vm-id">104</span>
+            </div>
+            <div class="tree-item" onclick="selectVM(105)">
+              <div class="status-dot paused"></div>
+              <span class="tree-label">ci-runner</span>
+              <span class="vm-id">105</span>
+            </div>
+          </div>
+
+          <div class="tree-item" onclick="selectNode('node3')">
+            <div class="status-dot online"></div>
+            <span class="tree-icon">◈</span>
+            <span class="tree-label">hf-node-03</span>
+          </div>
+          <div class="tree-children">
+            <div class="tree-item" onclick="selectVM(106)">
+              <div class="status-dot running"></div>
+              <span class="tree-label">monitoring</span>
+              <span class="vm-id">106</span>
+            </div>
+            <div class="tree-item" onclick="selectVM(107)">
+              <div class="status-dot stopped"></div>
+              <span class="tree-label">backup-agent</span>
+              <span class="vm-id">107</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-header">Storage</div>
+      <div class="tree-node">
+        <div class="tree-item" onclick="selectStorage('local')">
+          <span class="tree-icon">⬜</span>
+          <span class="tree-label">local-lvm</span>
+          <span class="tree-badge">2.1T</span>
+        </div>
+        <div class="tree-item" onclick="selectStorage('ceph')">
+          <span class="tree-icon">⬜</span>
+          <span class="tree-label">ceph-pool</span>
+          <span class="tree-badge">8.4T</span>
+        </div>
+        <div class="tree-item" onclick="selectStorage('nfs')">
+          <span class="tree-icon">⬜</span>
+          <span class="tree-label">nfs-backup</span>
+          <span class="tree-badge">16T</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-header">Tasks</div>
+      <div class="tree-node">
+        <div class="tree-item">
+          <span class="tree-icon">↻</span>
+          <span class="tree-label">vzdump: VM 103</span>
+          <span class="tree-badge running">●</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content" id="main-content">
+
+    <!-- BREADCRUMB -->
+    <div class="breadcrumb">
+      Datacenter / <span>hf-node-01</span> / <span class="sep">/</span> Summary
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <div class="tab active" onclick="setTab(this,'summary')">Summary</div>
+      <div class="tab" onclick="setTab(this,'vm-list')">Virtual Machines</div>
+      <div class="tab" onclick="setTab(this,'network')">Network</div>
+      <div class="tab" onclick="setTab(this,'console')">Shell</div>
+      <div class="tab" onclick="setTab(this,'tasks')">Task Log</div>
+    </div>
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="openModal('create-vm')">+ Create VM</button>
+      <button class="btn btn-default" onclick="openModal('create-ct')">+ Create CT</button>
+      <div class="toolbar-sep"></div>
+      <button class="btn btn-success" onclick="notify('success','Node started successfully','✓')">▶ Start</button>
+      <button class="btn btn-default" onclick="notify('info','Migrating VM…','↗')">↗ Migrate</button>
+      <button class="btn btn-default">⊞ Clone</button>
+      <button class="btn btn-danger" onclick="notify('warn','Shutdown initiated','⚠')">■ Shutdown</button>
+      <div class="toolbar-sep"></div>
+      <div class="search-box">
+        <input type="text" placeholder="Search VMs, nodes…" oninput="filterTable(this.value)">
+      </div>
+    </div>
+
+    <!-- MAIN SCROLLABLE AREA -->
+    <div class="panel-content" id="panel-summary">
+
+      <!-- STATS -->
+      <div class="stats-grid">
+        <div class="stat-card cyan">
+          <div class="stat-label">CPU Usage</div>
+          <div class="stat-value">42<span style="font-size:16px;color:var(--text-secondary)">%</span></div>
+          <div class="stat-sub"><b>84</b> / 200 cores</div>
+          <div class="usage-bar-wrap">
+            <div class="usage-bar-label"><span>Threads</span><span>42%</span></div>
+            <div class="usage-bar"><div class="usage-bar-fill cyan" style="width:42%"></div></div>
+          </div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">Memory</div>
+          <div class="stat-value">187<span style="font-size:16px;color:var(--text-secondary)">GB</span></div>
+          <div class="stat-sub"><b>187</b> / 384 GB used</div>
+          <div class="usage-bar-wrap">
+            <div class="usage-bar-label"><span>RAM</span><span>49%</span></div>
+            <div class="usage-bar"><div class="usage-bar-fill green" style="width:49%"></div></div>
+          </div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-label">Storage I/O</div>
+          <div class="stat-value">1.2<span style="font-size:16px;color:var(--text-secondary)">GB/s</span></div>
+          <div class="stat-sub">Read: <b>840 MB/s</b> · Write: <b>380 MB/s</b></div>
+          <div class="usage-bar-wrap">
+            <div class="usage-bar-label"><span>Throughput</span><span>76%</span></div>
+            <div class="usage-bar"><div class="usage-bar-fill amber" style="width:76%"></div></div>
+          </div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-label">Network</div>
+          <div class="stat-value">3.4<span style="font-size:16px;color:var(--text-secondary)">Gb/s</span></div>
+          <div class="stat-sub">In: <b>2.1 Gb/s</b> · Out: <b>1.3 Gb/s</b></div>
+          <div class="usage-bar-wrap">
+            <div class="usage-bar-label"><span>Bandwidth</span><span>34%</span></div>
+            <div class="usage-bar"><div class="usage-bar-fill purple" style="width:34%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHARTS -->
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title">CPU History (1h)</div>
+            <div class="chart-legend">
+              <span><div class="legend-dot" style="background:var(--accent-cyan)"></div> node-01</span>
+              <span><div class="legend-dot" style="background:var(--accent-purple)"></div> node-02</span>
+              <span><div class="legend-dot" style="background:var(--accent-green)"></div> node-03</span>
+            </div>
+          </div>
+          <canvas id="cpu-chart" height="100"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title">Memory History (1h)</div>
+            <div class="chart-legend">
+              <span><div class="legend-dot" style="background:var(--accent-green)"></div> used</span>
+              <span><div class="legend-dot" style="background:var(--accent-amber)"></div> cached</span>
+            </div>
+          </div>
+          <canvas id="mem-chart" height="100"></canvas>
+        </div>
+      </div>
+
+      <!-- VM TABLE -->
+      <div class="vm-table-card">
+        <div class="vm-table-header">
+          <div class="vm-table-title">Virtual Machines — hf-node-01</div>
+          <div class="vm-table-actions">
+            <button class="btn btn-default" style="font-size:10px;padding:4px 8px">↓ Export</button>
+          </div>
+        </div>
+        <table id="vm-table">
+          <thead>
+            <tr>
+              <th onclick="sortTable(0)">ID ↕</th>
+              <th onclick="sortTable(1)">Name ↕</th>
+              <th onclick="sortTable(2)">Status</th>
+              <th>Node</th>
+              <th onclick="sortTable(4)">CPU ↕</th>
+              <th onclick="sortTable(5)">Memory ↕</th>
+              <th>Disk</th>
+              <th>Uptime</th>
+              <th>IP</th>
+            </tr>
+          </thead>
+          <tbody id="vm-tbody">
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- CONSOLE PANEL (hidden by default) -->
+    <div class="panel-content" id="panel-console" style="display:none">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">Node Shell — hf-node-01</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-default" style="font-size:10px;padding:4px 8px" onclick="clearConsole()">Clear</button>
+          </div>
+        </div>
+        <div class="console-output" id="console-out">
+<span class="prompt">root@hf-node-01:~# </span><span class="output">Welcome to HyperForge Node Shell v2.4.1</span>
+<span class="prompt">root@hf-node-01:~# </span><span class="output">uptime</span>
+<span class="output"> 14:22:03 up 47 days, 3:11, 1 user, load average: 1.42, 1.38, 1.29</span>
+<span class="prompt">root@hf-node-01:~# </span><span class="output">qm list</span>
+<span class="output">      VMID NAME                 STATUS     MEM(MB)    BOOTDISK(GB) PID
+       100 web-prod-01          running    4096              50.00 12847
+       101 db-master            running    16384             200.00 13102
+       102 dev-sandbox          stopped    2048              30.00 0</span>
+<span class="prompt">root@hf-node-01:~# </span>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <input type="text" id="console-input" placeholder="Enter command…" style="flex:1;background:var(--bg-elevated);border:1px solid var(--border-bright);color:var(--text-primary);padding:8px 12px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:12px;outline:none" onkeydown="consoleCommand(event)">
+          <button class="btn btn-primary" onclick="runConsoleCmd()">Run</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TASKS PANEL -->
+    <div class="panel-content" id="panel-tasks" style="display:none">
+      <div class="vm-table-card">
+        <div class="vm-table-header">
+          <div class="vm-table-title">Task Log</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Start Time</th>
+              <th>End Time</th>
+              <th>Node</th>
+              <th>User</th>
+              <th>Description</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>2026-02-19 14:18</td><td>14:19</td><td>hf-node-01</td><td>root</td><td>VM 101: Start</td><td><span class="status-badge running">OK</span></td></tr>
+            <tr><td>2026-02-19 13:55</td><td>14:02</td><td>hf-node-02</td><td>root</td><td>vzdump: VM 103</td><td><span class="status-badge running">running</span></td></tr>
+            <tr><td>2026-02-19 12:30</td><td>12:30</td><td>hf-node-01</td><td>root</td><td>VM 102: Stop</td><td><span class="status-badge running">OK</span></td></tr>
+            <tr><td>2026-02-19 09:14</td><td>09:15</td><td>hf-node-03</td><td>admin</td><td>VM 106: Reboot</td><td><span class="status-badge running">OK</span></td></tr>
+            <tr><td>2026-02-18 23:00</td><td>23:42</td><td>hf-node-02</td><td>root</td><td>VM 104: Snapshot create</td><td><span class="status-badge running">OK</span></td></tr>
+            <tr><td>2026-02-18 18:30</td><td>18:30</td><td>hf-node-01</td><td>root</td><td>VM 105: Suspend</td><td><span class="status-badge paused">warn</span></td></tr>
+            <tr><td>2026-02-18 10:05</td><td>10:06</td><td>hf-node-03</td><td>root</td><td>VM 107: Start</td><td><span class="status-badge stopped">failed</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- NETWORK PANEL -->
+    <div class="panel-content" id="panel-network" style="display:none">
+      <div class="vm-table-card">
+        <div class="vm-table-header">
+          <div class="vm-table-title">Network Interfaces</div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Type</th><th>CIDR</th><th>Bridge</th><th>MTU</th><th>Link</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="name-col">eth0</td><td>eth</td><td>10.0.1.10/24</td><td>vmbr0</td><td>1500</td><td><span class="status-badge running">up</span></td></tr>
+            <tr><td class="name-col">eth1</td><td>eth</td><td>10.0.2.10/24</td><td>vmbr1</td><td>9000</td><td><span class="status-badge running">up</span></td></tr>
+            <tr><td class="name-col">vmbr0</td><td>bridge</td><td>10.0.1.1/24</td><td>—</td><td>1500</td><td><span class="status-badge running">up</span></td></tr>
+            <tr><td class="name-col">vmbr1</td><td>bridge</td><td>10.0.2.1/24</td><td>—</td><td>9000</td><td><span class="status-badge running">up</span></td></tr>
+            <tr><td class="name-col">bond0</td><td>bond</td><td>—</td><td>vmbr0</td><td>1500</td><td><span class="status-badge running">up</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- VM LIST PANEL -->
+    <div class="panel-content" id="panel-vm-list" style="display:none">
+      <div class="vm-table-card">
+        <div class="vm-table-header">
+          <div class="vm-table-title">All Virtual Machines</div>
+          <button class="btn btn-primary" onclick="openModal('create-vm')">+ Create VM</button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>VMID</th><th>Name</th><th>Status</th><th>Node</th><th>vCPU</th><th>Memory</th><th>Disk</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="vm-id">100</td><td class="name-col">web-prod-01</td><td><span class="status-badge running">running</span></td><td>hf-node-01</td><td>4</td><td>4 GB</td><td>50 GB</td></tr>
+            <tr><td class="vm-id">101</td><td class="name-col">db-master</td><td><span class="status-badge running">running</span></td><td>hf-node-01</td><td>16</td><td>16 GB</td><td>200 GB</td></tr>
+            <tr><td class="vm-id">102</td><td class="name-col">dev-sandbox</td><td><span class="status-badge stopped">stopped</span></td><td>hf-node-01</td><td>2</td><td>2 GB</td><td>30 GB</td></tr>
+            <tr><td class="vm-id">103</td><td class="name-col">k8s-worker-01</td><td><span class="status-badge running">running</span></td><td>hf-node-02</td><td>8</td><td>8 GB</td><td>100 GB</td></tr>
+            <tr><td class="vm-id">104</td><td class="name-col">k8s-worker-02</td><td><span class="status-badge running">running</span></td><td>hf-node-02</td><td>8</td><td>8 GB</td><td>100 GB</td></tr>
+            <tr><td class="vm-id">105</td><td class="name-col">ci-runner</td><td><span class="status-badge paused">paused</span></td><td>hf-node-02</td><td>4</td><td>4 GB</td><td>60 GB</td></tr>
+            <tr><td class="vm-id">106</td><td class="name-col">monitoring</td><td><span class="status-badge running">running</span></td><td>hf-node-03</td><td>2</td><td>4 GB</td><td>80 GB</td></tr>
+            <tr><td class="vm-id">107</td><td class="name-col">backup-agent</td><td><span class="status-badge stopped">stopped</span></td><td>hf-node-03</td><td>1</td><td>1 GB</td><td>20 GB</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="rp-section">
+      <div class="rp-title">Cluster Nodes</div>
+      <div class="node-card">
+        <div class="node-card-top">
+          <div class="status-dot online"></div>
+          <div class="node-name">hf-node-01</div>
+          <div class="node-type">master</div>
+        </div>
+        <div class="node-metrics">
+          <div class="node-metric"><b>42%</b> CPU</div>
+          <div class="node-metric"><b>49%</b> RAM</div>
+          <div class="node-metric"><b>3 VMs</b> running</div>
+          <div class="node-metric"><b>47d</b> uptime</div>
+        </div>
+        <div class="usage-bar-wrap" style="margin-top:8px">
+          <div class="usage-bar"><div class="usage-bar-fill cyan" style="width:42%"></div></div>
+        </div>
+      </div>
+      <div class="node-card">
+        <div class="node-card-top">
+          <div class="status-dot online"></div>
+          <div class="node-name">hf-node-02</div>
+          <div class="node-type">worker</div>
+        </div>
+        <div class="node-metrics">
+          <div class="node-metric"><b>67%</b> CPU</div>
+          <div class="node-metric"><b>71%</b> RAM</div>
+          <div class="node-metric"><b>3 VMs</b> running</div>
+          <div class="node-metric"><b>23d</b> uptime</div>
+        </div>
+        <div class="usage-bar-wrap" style="margin-top:8px">
+          <div class="usage-bar"><div class="usage-bar-fill amber" style="width:67%"></div></div>
+        </div>
+      </div>
+      <div class="node-card">
+        <div class="node-card-top">
+          <div class="status-dot online"></div>
+          <div class="node-name">hf-node-03</div>
+          <div class="node-type">worker</div>
+        </div>
+        <div class="node-metrics">
+          <div class="node-metric"><b>18%</b> CPU</div>
+          <div class="node-metric"><b>32%</b> RAM</div>
+          <div class="node-metric"><b>1 VM</b> running</div>
+          <div class="node-metric"><b>61d</b> uptime</div>
+        </div>
+        <div class="usage-bar-wrap" style="margin-top:8px">
+          <div class="usage-bar"><div class="usage-bar-fill green" style="width:18%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rp-section">
+      <div class="rp-title">System Log</div>
+      <div id="log-container">
+        <div class="log-entry">
+          <div class="log-time">14:22</div>
+          <div class="log-level info">INF</div>
+          <div class="log-msg">VM 101 heartbeat OK</div>
+        </div>
+        <div class="log-entry">
+          <div class="log-time">14:18</div>
+          <div class="log-level info">INF</div>
+          <div class="log-msg">vzdump VM 103 started</div>
+        </div>
+        <div class="log-entry">
+          <div class="log-time">14:10</div>
+          <div class="log-level warn">WRN</div>
+          <div class="log-msg">hf-node-02 CPU above 65%</div>
+        </div>
+        <div class="log-entry">
+          <div class="log-time">13:55</div>
+          <div class="log-level info">INF</div>
+          <div class="log-msg">Snapshot task completed</div>
+        </div>
+        <div class="log-entry">
+          <div class="log-time">12:30</div>
+          <div class="log-level err">ERR</div>
+          <div class="log-msg">VM 107 failed to start: disk error</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rp-section">
+      <div class="rp-title">Storage Usage</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <div class="usage-bar-label">
+            <span>local-lvm</span><span style="color:var(--text-secondary)">1.4 / 2.1 TB</span>
+          </div>
+          <div class="usage-bar" style="height:5px">
+            <div class="usage-bar-fill amber" style="width:67%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="usage-bar-label">
+            <span>ceph-pool</span><span style="color:var(--text-secondary)">3.1 / 8.4 TB</span>
+          </div>
+          <div class="usage-bar" style="height:5px">
+            <div class="usage-bar-fill cyan" style="width:37%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="usage-bar-label">
+            <span>nfs-backup</span><span style="color:var(--text-secondary)">5.2 / 16 TB</span>
+          </div>
+          <div class="usage-bar" style="height:5px">
+            <div class="usage-bar-fill green" style="width:32%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- CREATE VM MODAL -->
+<div class="modal-overlay" id="modal-create-vm">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Create Virtual Machine</div>
+      <button class="modal-close" onclick="closeModal('create-vm')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-field">
+          <label>VM ID</label>
+          <input type="number" value="108" placeholder="108">
+        </div>
+        <div class="form-field">
+          <label>Name</label>
+          <input type="text" placeholder="new-vm">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Node</label>
+          <select>
+            <option>hf-node-01</option>
+            <option>hf-node-02</option>
+            <option>hf-node-03</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>OS Type</label>
+          <select>
+            <option>Linux 6.x (kernel)</option>
+            <option>Linux 5.x (kernel)</option>
+            <option>Windows Server 2022</option>
+            <option>Windows 11</option>
+            <option>Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>vCPUs</label>
+          <input type="number" value="4" min="1" max="128">
+        </div>
+        <div class="form-field">
+          <label>Memory (MiB)</label>
+          <input type="number" value="4096" min="512" step="512">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Disk Size (GB)</label>
+          <input type="number" value="50" min="1">
+        </div>
+        <div class="form-field">
+          <label>Storage</label>
+          <select>
+            <option>local-lvm</option>
+            <option>ceph-pool</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row full">
+        <div class="form-field">
+          <label>ISO Image</label>
+          <select>
+            <option>ubuntu-22.04-server.iso</option>
+            <option>debian-12.iso</option>
+            <option>rocky-linux-9.iso</option>
+            <option>windows-server-2022.iso</option>
+            <option>— None —</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Network Bridge</label>
+          <select>
+            <option>vmbr0 (10.0.1.x)</option>
+            <option>vmbr1 (10.0.2.x)</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>VLAN Tag</label>
+          <input type="number" placeholder="none">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeModal('create-vm')">Cancel</button>
+      <button class="btn btn-primary" onclick="createVM()">Create VM</button>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE CT MODAL -->
+<div class="modal-overlay" id="modal-create-ct">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Create Container (LXC)</div>
+      <button class="modal-close" onclick="closeModal('create-ct')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-field">
+          <label>CT ID</label>
+          <input type="number" value="200">
+        </div>
+        <div class="form-field">
+          <label>Hostname</label>
+          <input type="text" placeholder="my-container">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Template</label>
+          <select>
+            <option>ubuntu-22.04-std</option>
+            <option>debian-12-std</option>
+            <option>alpine-3.18</option>
+            <option>fedora-38</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Node</label>
+          <select>
+            <option>hf-node-01</option>
+            <option>hf-node-02</option>
+            <option>hf-node-03</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>vCPUs</label>
+          <input type="number" value="1" min="1">
+        </div>
+        <div class="form-field">
+          <label>Memory (MiB)</label>
+          <input type="number" value="512" min="128" step="128">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Root Disk (GB)</label>
+          <input type="number" value="8">
+        </div>
+        <div class="form-field">
+          <label>Swap (MiB)</label>
+          <input type="number" value="512" step="128">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeModal('create-ct')">Cancel</button>
+      <button class="btn btn-primary" onclick="createCT()">Create Container</button>
+    </div>
+  </div>
+</div>
+
+<!-- NOTIFICATIONS -->
+<div class="notif-stack" id="notif-stack"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+// ============================================================
+// HyperForge — API-connected frontend
+// Replaces static mock data with live Python backend calls.
+// ============================================================
+
+const API = `${location.protocol}//${location.host}/api`;
+const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
+
+// live state
+let vms = [];
+let nodes = {};
+let events = [];
+let ws = null;
+let cpuChart = null, memChart = null;
+let selectedVmId = null;
+
+// ── API helpers ───────────────────────────────────────────────
+async function apiFetch(path, opts = {}) {
+  try {
+    const res = await fetch(API + path, {
+      headers: { 'Content-Type': 'application/json' },
+      ...opts,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    notify('err', `API error: ${e.message}`, '✕');
+    throw e;
+  }
+}
+
+async function apiPost(path, body) {
+  return apiFetch(path, { method: 'POST', body: JSON.stringify(body) });
+}
+
+async function apiDelete(path) {
+  return apiFetch(path, { method: 'DELETE' });
+}
+
+// ── Initial data load ─────────────────────────────────────────
+async function loadAll() {
+  try {
+    const [vmData, nodeData, summaryData, eventData] = await Promise.all([
+      apiFetch('/vms'),
+      apiFetch('/nodes'),
+      apiFetch('/cluster/summary'),
+      apiFetch('/events?limit=20'),
+    ]);
+    vms   = vmData.vms;
+    nodes = {};
+    nodeData.nodes.forEach(n => nodes[n.id] = n);
+    events = eventData.events;
+
+    renderTable(vms);
+    renderSummaryCards(summaryData);
+    renderLogContainer(events);
+    renderSidebarNodes();
+    loadChartData();
+  } catch (e) {
+    console.error('[loadAll]', e);
+  }
+}
+
+// ── WebSocket live updates ────────────────────────────────────
+function connectWS() {
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    console.log('[WS] connected');
+    document.querySelector('.cluster-dot')?.style.setProperty('background', 'var(--accent-green)');
+  };
+
+  ws.onmessage = ({ data }) => {
+    const msg = JSON.parse(data);
+
+    if (msg.type === 'init') {
+      // already loaded via REST, just update if needed
+      return;
+    }
+
+    if (msg.type === 'metrics_update') {
+      // update vm cpu/mem in our local array
+      Object.entries(msg.vms).forEach(([id, m]) => {
+        const vm = vms.find(v => v.id === +id);
+        if (vm) { vm.cpu = m.cpu; vm.mem = m.mem; }
+      });
+      // update node temps/load
+      Object.entries(msg.nodes).forEach(([id, m]) => {
+        if (nodes[id]) { nodes[id].temp = m.temp; nodes[id].load = [m.load, m.load, m.load]; }
+      });
+      renderTable(vms);
+      if (msg.latest_event) {
+        events.push(msg.latest_event);
+        if (events.length > 100) events.shift();
+        prependLogEntry(msg.latest_event);
+      }
+    }
+
+    if (msg.type === 'vm_update') {
+      const idx = vms.findIndex(v => v.id === msg.vm.id);
+      const updated = { ...msg.vm, uptime: msg.vm.uptime_secs ? fmtUptimeJS(msg.vm.uptime_secs) : '—', ip_display: msg.vm.ip || '—' };
+      if (idx >= 0) vms[idx] = updated;
+      else vms.push(updated);
+      renderTable(vms);
+    }
+
+    if (msg.type === 'vm_deleted') {
+      vms = vms.filter(v => v.id !== msg.vm_id);
+      renderTable(vms);
+    }
+
+    if (msg.type === 'task_done') {
+      notify('success', `Task ${msg.task.action} ${msg.task.target} ✓`, '✓');
+    }
+  };
+
+  ws.onclose = () => {
+    console.log('[WS] disconnected — reconnecting in 3s');
+    setTimeout(connectWS, 3000);
+  };
+
+  ws.onerror = (e) => {
+    console.warn('[WS] error', e);
+    ws.close();
+  };
+}
+
+// ── Utility ───────────────────────────────────────────────────
+function fmtUptimeJS(secs) {
+  const d = Math.floor(secs / 86400);
+  const h = Math.floor((secs % 86400) / 3600);
+  return d ? `${d}d ${h}h` : `${h}h`;
+}
+
+// ── Summary cards update ──────────────────────────────────────
+function renderSummaryCards(s) {
+  // Update any summary stat elements if they exist in the DOM
+  const setTxt = (sel, val) => { const el = document.querySelector(sel); if (el) el.textContent = val; };
+  // These ids are hints; the actual HTML may differ
+  setTxt('#stat-nodes-online', `${s.nodes.online}/${s.nodes.total}`);
+  setTxt('#stat-vms-running',  s.vms.running);
+  setTxt('#stat-mem-pct',      s.memory.pct + '%');
+}
+
+// ── Sidebar nodes ─────────────────────────────────────────────
+function renderSidebarNodes() {
+  // Update badge counts in sidebar
+  document.querySelectorAll('.tree-badge.running').forEach((el, i) => {
+    const nodeIds = Object.keys(nodes);
+    if (nodeIds[i]) {
+      const nid = nodeIds[i];
+      const count = vms.filter(v => v.node === nid && v.status === 'running').length;
+      el.textContent = count;
+    }
+  });
+}
+
+// ── Log rendering ─────────────────────────────────────────────
+function renderLogContainer(evts) {
+  const container = document.getElementById('log-container');
+  if (!container) return;
+  container.innerHTML = '';
+  [...evts].reverse().slice(0, 8).forEach(e => prependLogEntry(e, false));
+}
+
+function prependLogEntry(e, animate = true) {
+  const container = document.getElementById('log-container');
+  if (!container) return;
+  const d = new Date(e.ts * 1000);
+  const time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  const lvl  = e.level === 'info' ? 'info' : e.level === 'warn' ? 'warn' : 'err';
+  const entry = document.createElement('div');
+  entry.className = `log-entry${animate ? ' animate-in' : ''}`;
+  entry.innerHTML = `<div class="log-time">${time}</div><div class="log-level ${lvl}">${lvl.toUpperCase().slice(0,3)}</div><div class="log-msg">${e.msg}</div>`;
+  container.insertBefore(entry, container.firstChild);
+  while (container.children.length > 8) container.removeChild(container.lastChild);
+}
+
+// ── Chart init with real history data ────────────────────────
+async function loadChartData() {
+  // Load metric history for first 3 running VMs
+  const running = vms.filter(v => v.status === 'running').slice(0, 3);
+  const histories = await Promise.all(running.map(v => apiFetch(`/vms/${v.id}`)));
+
+  const labels = Array.from({length: 60}, (_, i) => i % 10 === 0 ? `${60 - i}m` : '');
+  const colors = ['#00d4ff', '#9b59f5', '#00e57a'];
+
+  const cpuCtx = document.getElementById('cpu-chart')?.getContext('2d');
+  if (cpuCtx) {
+    if (cpuChart) cpuChart.destroy();
+    cpuChart = new Chart(cpuCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: histories.map((h, i) => ({
+          label: running[i]?.name || '',
+          data: h.history?.cpu || [],
+          borderColor: colors[i],
+          backgroundColor: colors[i].replace(')', ', 0.05)').replace('rgb', 'rgba'),
+          borderWidth: 1.5, pointRadius: 0, tension: 0.4,
+        }))
+      },
+      options: {
+        responsive: true, animation: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: true, callbacks: { label: ctx => ` ${ctx.parsed.y}%` } } },
+        scales: {
+          x: { grid: { color: 'rgba(37,42,56,0.8)' }, ticks: { color: '#545e76', font: { family: 'JetBrains Mono', size: 9 } } },
+          y: { min: 0, max: 100, grid: { color: 'rgba(37,42,56,0.8)' }, ticks: { color: '#545e76', font: { family: 'JetBrains Mono', size: 9 }, callback: v => v + '%' } }
+        }
+      }
+    });
+  }
+
+  const memCtx = document.getElementById('mem-chart')?.getContext('2d');
+  if (memCtx) {
+    if (memChart) memChart.destroy();
+    memChart = new Chart(memCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: histories.slice(0, 2).map((h, i) => ({
+          label: running[i]?.name || '',
+          data: h.history?.mem || [],
+          borderColor: ['#00e57a', '#ffb020'][i],
+          backgroundColor: ['rgba(0,229,122,0.07)', 'rgba(255,176,32,0.07)'][i],
+          borderWidth: 1.5, pointRadius: 0, tension: 0.4, fill: true,
+        }))
+      },
+      options: {
+        responsive: true, animation: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: true, callbacks: { label: ctx => ` ${ctx.parsed.y}%` } } },
+        scales: {
+          x: { grid: { color: 'rgba(37,42,56,0.8)' }, ticks: { color: '#545e76', font: { family: 'JetBrains Mono', size: 9 } } },
+          y: { min: 0, max: 100, grid: { color: 'rgba(37,42,56,0.8)' }, ticks: { color: '#545e76', font: { family: 'JetBrains Mono', size: 9 }, callback: v => v + '%' } }
+        }
+      }
+    });
+  }
+}
+
+// ── VM Actions via API ────────────────────────────────────────
+async function vmAction(vmId, action, extra = {}) {
+  try {
+    const res = await apiPost(`/vms/${vmId}/action`, { action, ...extra });
+    notify('info', `${action} → VM ${vmId}…`, '⟳');
+  } catch (e) { /* notified by apiFetch */ }
+}
+
+// ── Create VM via API ─────────────────────────────────────────
+async function createVM() {
+  closeModal('create-vm');
+  const name    = document.getElementById('vm-name-input')?.value || 'new-vm';
+  const vcpus   = document.getElementById('vm-vcpu-input')?.value || 2;
+  const mem_mb  = (document.getElementById('vm-mem-input')?.value || 2) * 1024;
+  const disk_gb = document.getElementById('vm-disk-input')?.value || 32;
+  const node    = document.getElementById('vm-node-input')?.value || 'hf-node-01';
+  const os      = document.getElementById('vm-os-input')?.value || 'Ubuntu 22.04';
+
+  try {
+    const res = await apiPost('/vms', { name, vcpus: +vcpus, mem_mb: +mem_mb, disk_gb: +disk_gb, node, os });
+    vms.push(res.vm);
+    renderTable(vms);
+    notify('success', `VM ${res.vm.id} (${res.vm.name}) created`, '✓');
+  } catch (e) { /* notified */ }
+}
+
+async function createCT() {
+  closeModal('create-ct');
+  const name = document.getElementById('ct-name-input')?.value || 'new-ct';
+  try {
+    const res = await apiPost('/vms', { name, type: 'ct', vcpus: 2, mem_mb: 2048, disk_gb: 20, node: 'hf-node-01', os: 'Debian 12' });
+    vms.push(res.vm);
+    renderTable(vms);
+    notify('success', `Container ${res.vm.id} (${res.vm.name}) created`, '✓');
+  } catch (e) { /* notified */ }
+}
+
+// ── Table rendering ───────────────────────────────────────────
+function barFill(val) {
+  const v = val || 0;
+  let cls = 'cyan';
+  if (v > 80) cls = 'danger';
+  else if (v > 60) cls = 'warn';
+  return `<div class="mini-bar"><div class="mini-bar-track"><div class="mini-bar-fill ${cls}" style="width:${v}%"></div></div><div class="mini-bar-val">${v}%</div></div>`;
+}
+
+function statusBadge(s) {
+  return `<span class="status-badge ${s}">${s}</span>`;
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('vm-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = data.map(v => `
+    <tr onclick="selectVM(${v.id})">
+      <td class="vm-id">${v.id}</td>
+      <td class="name-col">${v.name}</td>
+      <td>${statusBadge(v.status)}</td>
+      <td style="color:var(--text-muted)">${v.node}</td>
+      <td>${barFill(v.cpu)}</td>
+      <td>${barFill(v.mem)}</td>
+      <td>${barFill(v.disk)}</td>
+      <td style="color:var(--text-muted)">${v.uptime || (v.uptime_secs ? fmtUptimeJS(v.uptime_secs) : '—')}</td>
+      <td style="color:var(--text-muted)">${v.ip_display || v.ip || '—'}</td>
+    </tr>
+  `).join('');
+}
+
+// === NAVIGATION ===
+function setPage(page) {
+  document.querySelectorAll('.topbar-nav a').forEach(a => a.classList.remove('active'));
+  if (event?.target) event.target.classList.add('active');
+}
+
+let currentTab = 'summary';
+function setTab(el, tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('[id^="panel-"]').forEach(p => p.style.display = 'none');
+  const panel = document.getElementById(`panel-${tab}`);
+  if (panel) panel.style.display = 'flex';
+  currentTab = tab;
+}
+
+function selectNode(id) { notify('info', `Selected node: ${id}`, '◈'); }
+function selectVM(id) {
+  const vm = vms.find(v => v.id === id);
+  if (vm) notify('info', `VM ${id}: ${vm.name} — ${vm.status}`, vm.status === 'running' ? '✓' : '○');
+}
+function selectStorage(id) { notify('info', `Storage: ${id}`, '⬜'); }
+
+// === MODAL ===
+function openModal(id) {
+  document.getElementById(`modal-${id}`)?.classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(`modal-${id}`)?.classList.remove('open');
+}
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// === NOTIFICATIONS ===
+function notify(type, msg, icon = '●') {
+  const stack = document.getElementById('notif-stack');
+  const el = document.createElement('div');
+  el.className = `notif ${type}`;
+  el.innerHTML = `<span class="notif-icon">${icon}</span><span>${msg}</span>`;
+  stack.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 300);
+  }, 3500);
+}
+
+// === SEARCH / FILTER ===
+function filterTable(q) {
+  const filtered = q ? vms.filter(v =>
+    v.name.toLowerCase().includes(q.toLowerCase()) ||
+    String(v.id).includes(q) ||
+    v.node.includes(q) ||
+    v.status.includes(q)
+  ) : vms;
+  renderTable(filtered);
+}
+
+// === CONSOLE — now queries live API for real data ===
+async function buildConsoleResponse(cmd) {
+  const trimmed = cmd.trim();
+
+  // Commands that query backend
+  if (trimmed === 'top' || trimmed === 'ps aux | grep qemu') {
+    try {
+      const data = await apiFetch('/vms');
+      const running = data.vms.filter(v => v.status === 'running');
+      if (trimmed === 'top') {
+        const header = ' PID   USER   CPU    MEM    CMD';
+        const rows = running.map((v, i) =>
+          ` ${12847 + i}  root  ${v.cpu}%  ${v.mem}%  qemu-system-x86_64 (VM ${v.id}: ${v.name})`
+        ).join('\n');
+        return header + '\n' + rows;
+      } else {
+        return running.map((v, i) =>
+          ` ${12847 + i} root  qemu-system-x86_64 -id ${v.id} -name ${v.name}`
+        ).join('\n');
+      }
+    } catch (e) { return `error: ${e.message}`; }
+  }
+
+  if (trimmed === 'df -h') {
+    try {
+      const data = await apiFetch('/storage');
+      return ' Filesystem      Size   Used  Avail  Use%\n' +
+        data.storage.map(s =>
+          ` ${s.id.padEnd(15)} ${s.total}G  ${s.used}G  ${s.total - s.used}G   ${Math.round(s.used / s.total * 100)}%`
+        ).join('\n');
+    } catch (e) { return `error: ${e.message}`; }
+  }
+
+  if (trimmed === 'free -h') {
+    try {
+      const data = await apiFetch('/nodes');
+      const totMB = data.nodes.reduce((a, n) => a + n.mem_total, 0);
+      const usedMB = data.nodes.reduce((a, n) => a + n.mem_used, 0);
+      const toG = mb => (mb / 1024).toFixed(0) + 'G';
+      return `              total    used    free\n Mem:          ${toG(totMB)}    ${toG(usedMB)}    ${toG(totMB - usedMB)}`;
+    } catch (e) { return `error: ${e.message}`; }
+  }
+
+  if (trimmed.startsWith('vm start ') || trimmed.startsWith('vm stop ') || trimmed.startsWith('vm reboot ')) {
+    const parts = trimmed.split(' ');
+    const action = parts[1], id = parseInt(parts[2]);
+    if (!isNaN(id)) {
+      try {
+        await apiPost(`/vms/${id}/action`, { action });
+        return `OK — VM ${id} ${action} command sent`;
+      } catch (e) { return `error: ${e.message}`; }
+    }
+  }
+
+  if (trimmed === 'help') {
+    return [
+      'Available commands:',
+      '  top                  — show running VMs CPU/mem',
+      '  df -h                — storage usage',
+      '  free -h              — cluster memory',
+      '  ps aux | grep qemu   — list QEMU processes',
+      '  vm start <id>        — start VM',
+      '  vm stop <id>         — stop VM',
+      '  vm reboot <id>       — reboot VM',
+      '  help                 — this help',
+    ].join('\n');
+  }
+
+  return `bash: ${cmd}: command not found  (type 'help' for available commands)`;
+}
+
+function consoleCommand(e) {
+  if (e.key === 'Enter') runConsoleCmd();
+}
+
+async function runConsoleCmd() {
+  const input = document.getElementById('console-input');
+  const out = document.getElementById('console-out');
+  const cmd = input.value.trim();
+  if (!cmd) return;
+  input.value = '';
+  out.innerHTML += `\n<span class="prompt">root@hf-node-01:~# </span><span class="output">${cmd}</span>\n`;
+  out.innerHTML += `<span class="output" id="console-loading">running…</span>`;
+  out.scrollTop = out.scrollHeight;
+  const response = await buildConsoleResponse(cmd);
+  const loading = document.getElementById('console-loading');
+  if (loading) loading.remove();
+  out.innerHTML += `<span class="output">${response}</span>\n<span class="prompt">root@hf-node-01:~# </span>`;
+  out.scrollTop = out.scrollHeight;
+}
+
+function clearConsole() {
+  document.getElementById('console-out').innerHTML = '<span class="prompt">root@hf-node-01:~# </span>';
+}
+
+// === SORT ===
+let sortDir = 1, sortCol = -1;
+function sortTable(col) {
+  if (sortCol === col) sortDir *= -1;
+  else { sortCol = col; sortDir = 1; }
+  const keys = ['id','name','status','node','cpu','mem'];
+  vms.sort((a,b) => {
+    const va = a[keys[col]], vb = b[keys[col]];
+    if (typeof va === 'number') return (va - vb) * sortDir;
+    return String(va).localeCompare(String(vb)) * sortDir;
+  });
+  renderTable(vms);
+}
+
+// === BOOT ===
+loadAll();
+connectWS();
+setTimeout(() => notify('info', 'HyperForge connected — 3 nodes online', '⬡'), 1000);
+</script>
+</body>
+</html>
