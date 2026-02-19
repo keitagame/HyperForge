@@ -4,5 +4,5 @@ services:
     env: python
     plan: free   # 有料にするなら「starter」や「standard」
     buildCommand: |
-      pip install sqlite3
+      
     startCommand: python backend.py
